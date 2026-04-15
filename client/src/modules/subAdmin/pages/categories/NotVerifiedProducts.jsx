@@ -1,0 +1,1068 @@
+import React, { useState, useEffect, useContext } from "react";
+import {
+  Table,
+  TableHeader,
+  TableHead,
+  TableRow,
+  TableBody,
+  TableCell,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  useGetNotVerifiedProductsQuery,
+  useVerifyProductMutation,
+  useMarkProductAsReadMutation,
+  useDeleteProductMutation,
+} from "@/redux/api/ProductApi";
+import { Eye, Pencil, Trash2, CheckCircle, X, AlertOctagon, ClipboardCheck, FileSearch, User, Building2, Mail, Phone, ShieldCheck, MapPin, CreditCard, FileText, BadgeCheck } from "lucide-react";
+import { useDeleteProductImageMutation } from "@/redux/api/ProductImageApi";
+import { io } from "socket.io-client";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import Zoom from "react-medium-image-zoom";
+import "react-medium-image-zoom/dist/styles.css";
+import showToast from "@/toast/showToast";
+import DeleteDialog from "@/model/DeleteModel";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import noImage from "@/assets/images/no-image.jpg";
+import { Skeleton } from "@/components/ui/skeleton";
+import StepperProductForm from "../merchants/forms/MerchantProductForm"; // Adjust the import path as needed
+import { AuthContext } from "@/modules/landing/context/AuthContext";
+import { useSidebar } from "@/modules/admin/hooks/useSidebar";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useGetUserByIdQuery } from "@/redux/api/SubAdminAccessRequestApi";
+
+const NotVerifiedProducts = () => {
+  const { user } = useContext(AuthContext);
+  const { isSidebarOpen } = useSidebar();
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [filter, setFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+  const [isSellerModalOpen, setIsSellerModalOpen] = useState(false);
+  const [selectedSeller, setSelectedSeller] = useState(null);
+
+  const handleSellerClick = (seller) => {
+    setSelectedSeller(seller);
+    setIsSellerModalOpen(true);
+  };
+  const [deleteProduct] = useDeleteProductMutation();
+  const [deleteProductImage] = useDeleteProductImageMutation();
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [verifyProduct, { isLoading: isVerifying }] =
+    useVerifyProductMutation();
+  const [markProductAsRead] = useMarkProductAsReadMutation();
+
+  const userId = user?.user?._id;
+  const { data: currentUser } = useGetUserByIdQuery(userId, { skip: !userId });
+
+  const currentPagePath = "not-verified-products";
+  const pagePermissions = currentUser?.approved_permissions?.find(
+    (p) => p.page === currentPagePath
+  );
+
+  const canEdit = pagePermissions?.actions?.includes("edit") || false;
+  const canDelete = pagePermissions?.actions?.includes("delete") || false;
+
+  const { data, isLoading, isError, refetch } = useGetNotVerifiedProductsQuery({
+    page,
+    filter,
+    search,
+    user_id: user?.user?._id,
+  });
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener("resize", handleResize);
+
+    // Real-time notifications
+    const socket = io(`${import.meta.env.VITE_SOCKET_IO_URL}/admin-notifications`, {
+      reconnection: true,
+      withCredentials: true,
+    });
+
+    socket.on('connect', () => {
+      console.log('[Not Verified Products] Socket connected');
+    });
+
+    socket.on('new-product', () => {
+      console.log('[Not Verified Products] New product event received, refreshing...');
+      refetch();
+    });
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      socket.disconnect();
+    };
+  }, [refetch]);
+
+  const [activeImage, setActiveImage] = useState(null);
+
+  useEffect(() => {
+    if (selectedProduct?.product_image?.length) {
+      setActiveImage(selectedProduct.product_image[0]);
+    }
+  }, [selectedProduct]);
+
+  const handleImageHover = (imgUrl) => {
+    setActiveImage(imgUrl);
+  };
+
+  const handleEdit = (product) => {
+    setEditingProduct(product);
+    setIsModalOpen(true);
+  };
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setEditingProduct(null);
+  };
+
+  const handleDelete = async (id) => {
+    setIsDialogOpen(true);
+    setDeleteId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+
+    const selectedProduct = data?.products?.find(
+      (item) => item._id === deleteId
+    );
+
+    try {
+      if (
+        Array.isArray(selectedProduct?.product_image) &&
+        selectedProduct.product_image.length > 0
+      ) {
+        const fileNames = selectedProduct.product_image.map((url) =>
+          url.split("/").pop()
+        );
+
+        await deleteProductImage({
+          product_name: selectedProduct.product_name,
+          file_names: fileNames,
+        }).unwrap();
+      }
+
+      const deleteProductResponse = await deleteProduct(deleteId).unwrap();
+      if (deleteProductResponse.success) {
+        showToast(
+          deleteProductResponse.message || "Product Deleted Successfully", "success"
+        );
+      } else {
+        showToast(deleteProductResponse.message || "Failed to Delete", 'error');
+      }
+    } catch (err) {
+      showToast(err.data?.message || "Error during deletion", 'error');
+      console.error("Error during deletion:", err);
+    } finally {
+      setDeleteId(null);
+      setIsDialogOpen(false);
+    }
+  };
+
+  const handleVerify = async (id) => {
+    try {
+      const response = await verifyProduct(id).unwrap();
+      showToast(response.message || "Product verified successfully!", 'success');
+    } catch (error) {
+      const message = error?.data?.message || "Failed to verify product";
+      if (
+        message.toLowerCase().includes("not verified") ||
+        message.includes("KYC")
+      ) {
+        showToast(message, 'warning');
+      } else if (message.includes("already verified")) {
+        showToast(message, 'info');
+      } else {
+        showToast(message, 'error');
+      }
+    }
+  };
+
+  const handleMarkAsRead = async (id) => {
+    try {
+      const response = await markProductAsRead(id).unwrap();
+      showToast(response.message || "Marked as read", "success");
+    } catch (error) {
+      showToast(error?.data?.message || "Failed to mark as read", "error");
+    }
+  };
+
+  const handlePaginationChange = (newPage) => {
+    setPage(newPage);
+  };
+
+  const handleFilterChange = (newFilter) => {
+    setFilter(newFilter);
+    setPage(1);
+  };
+
+  const handleSearchChange = (e) => {
+    setSearch(e.target.value);
+  };
+
+  if (isLoading) {
+    return (
+      <div className={`space-y-4 ${isSidebarOpen ? "lg:p-6 lg:ml-56" : "lg:p-4 lg:ml-16"}`}>
+        <Skeleton className="h-8 w-1/3" />
+        <Skeleton className="h-10 w-full max-w-md" />
+        <div className="flex gap-2">
+          <Skeleton className="h-10 w-24" />
+          <Skeleton className="h-10 w-24" />
+          <Skeleton className="h-10 w-24" />
+        </div>
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+  if (isError) {
+    return <p className="text-center text-red-600">Failed to load products.</p>;
+  }
+  const openProductModal = (product) => {
+    setSelectedProduct(product);
+    setActiveImage(product.product_image?.[0] || "");
+    setIsProductModalOpen(true);
+  };
+  const closeDetails = () => {
+    setSelectedProduct(null);
+    setIsProductModalOpen(false);
+  };
+
+  const products = data?.products || [];
+
+  return (
+    <div className={`${isSidebarOpen ? "lg:p-6 lg:ml-56" : "lg:p-4 lg:ml-16"} transition-all duration-300`}>
+      <h1 className="text-md border-1 w-fit mb-3 border-[#0c1f4d] text-[#0c1f4d] bg-gray-100 p-2 rounded-r-2xl font-bold">
+        Product Details
+      </h1>
+      {/* ---------------------------------------------------------------------------
+            LEFT PANEL: VALIDATION SOP
+           --------------------------------------------------------------------------- */}
+      <div className="xl:col-span-1">
+
+        <div className="space-y-2">
+          <h2 className="text-2xl font-black text-[#0c1f4d] tracking-tight">
+            Validation Queue
+          </h2>
+          <p className="text-sm text-slate-500 font-medium">
+            Protocols for auditing and approving pending inventory.
+          </p>
+        </div>
+
+        <div className="flex flex-col md:flex-row gap-2 space-y-4 mb-4 md:space-y-0">
+
+          {/* SOP 1: Quality Audit */}
+          <Card className="border-l-4 border-l-amber-500 shadow-sm bg-white">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-800">
+                <FileSearch size={16} className="text-amber-600" />
+                1. Quality Audit
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Before clicking <span className="font-bold text-green-600">Verify</span>, check:
+                <ul className="list-disc pl-4 mt-1 space-y-1">
+                  <li>Is the image clear and relevant?</li>
+                  <li>Is the description free of contact info?</li>
+                  <li>Is the pricing realistic?</li>
+                </ul>
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* SOP 2: Categorization */}
+          <Card className="border-l-4 border-l-blue-600 shadow-sm bg-white">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-800">
+                <ClipboardCheck size={16} className="text-blue-600" />
+                2. Taxonomy Check
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Ensure the product is mapped to the correct <strong>Deep Sub Category</strong>.
+                <br />
+                <span className="italic">Example: 'Apples' should be in Fruits, not Vegetables.</span>
+                <br />
+                Use <strong>Edit</strong> to re-map categories if incorrect.
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* SOP 3: Rejection */}
+          <Card className="border-l-4 border-l-red-600 shadow-sm bg-white">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-800">
+                <AlertOctagon size={16} className="text-red-600" />
+                3. Rejection Policy
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                <strong>Delete</strong> items that violate community standards (e.g., illegal goods, spam).
+                <br />
+                For minor errors, <strong>Edit</strong> the product directly instead of deleting.
+              </p>
+            </CardContent>
+          </Card>
+
+        </div>
+      </div>
+      <Input
+        type="text"
+        placeholder="Search by product name"
+        value={search}
+        onChange={handleSearchChange}
+        className="mb-4 w-full max-w-md"
+      />
+      <div className="flex flex-wrap gap-2 mb-4">
+        <Button
+          onClick={() => handleFilterChange("today")}
+          className="flex-1 sm:flex-none border-[#0c1f4d] bg-[#0c1f4d] text-white hover:bg-slate-800"
+        >
+          Today
+        </Button>
+        <Button
+          onClick={() => handleFilterChange("last_week")}
+          className="flex-1 sm:flex-none border-[#0c1f4d] bg-[#0c1f4d] text-white hover:bg-slate-800"
+        >
+          Last Week
+        </Button>
+        <Button
+          onClick={() => handleFilterChange("last_month")}
+          className="flex-1 sm:flex-none border-[#0c1f4d] bg-[#0c1f4d] text-white hover:bg-slate-800"
+        >
+          Last Month
+        </Button>
+      </div>
+
+      {/* Desktop Table */}
+      <div className="hidden sm:block overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+        <Table>
+          <TableHeader className="bg-[#0c1f4d]">
+            <TableRow>
+              <TableHead className="px-4 py-3 text-left text-sm font-semibold text-white whitespace-nowrap hover:bg-transparent">
+                Company name
+              </TableHead>
+              <TableHead className="px-4 py-3 text-left text-sm font-semibold text-white whitespace-nowrap hover:bg-transparent">
+                Category
+              </TableHead>
+              <TableHead className="px-4 py-3 text-left text-sm font-semibold text-white whitespace-nowrap hover:bg-transparent">
+                Sub Category
+              </TableHead>
+              <TableHead className="px-4 py-3 text-left text-sm font-semibold text-white whitespace-nowrap hover:bg-transparent">
+                Super Sub Category
+              </TableHead>
+              <TableHead className="px-4 py-3 text-left text-sm font-semibold text-white whitespace-nowrap hover:bg-transparent">
+                Deep Sub Category
+              </TableHead>
+              <TableHead className="px-4 py-3 text-left text-sm font-semibold text-white whitespace-nowrap hover:bg-transparent">
+                Product Name
+              </TableHead>
+              <TableHead className="px-4 py-3 text-left text-sm font-semibold text-white whitespace-nowrap hover:bg-transparent">
+                Price (₹)
+              </TableHead>
+              <TableHead className="px-4 py-3 text-left text-sm font-semibold text-white whitespace-nowrap hover:bg-transparent">
+                Stock
+              </TableHead>
+              <TableHead className="px-4 py-3 text-left text-sm font-semibold text-white whitespace-nowrap hover:bg-transparent">
+                Verified
+              </TableHead>
+              <TableHead className="px-4 py-3 text-left text-sm font-semibold text-white whitespace-nowrap hover:bg-transparent">
+                Actions
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+
+          <TableBody>
+            {products.map((product) => {
+              /* Reusable Truncate + Tooltip Component */
+              const Truncate = ({ text }) => {
+                // Fallback text
+                let displayText = text || "N/A";
+
+                // 1. Replace hyphens with spaces
+                displayText = displayText.replace(/-/g, " ");
+
+                // 2. Capitalize first character of each word
+                displayText = displayText.replace(/\b\w/g, (char) =>
+                  char.toUpperCase()
+                );
+
+                const isLong = displayText.length > 15;
+                const truncated = isLong
+                  ? `${displayText.slice(0, 15)}…`
+                  : displayText;
+
+                return isLong ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-block max-w-[10ch] truncate cursor-default">
+                          {truncated}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent
+                        side="top"
+                        align="center"
+                        className="max-w-xs break-words p-2"
+                      >
+                        {displayText}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <span className="inline-block max-w-[10ch] truncate">
+                    {displayText}
+                  </span>
+                );
+              };
+
+              return (
+                <TableRow key={product._id} className="hover:bg-slate-50 transition-colors">
+                  {/* Category */}
+                  <TableCell className="px-4 py-3 text-xs sm:text-sm">
+                    <div className="flex flex-col gap-0.5 leading-tight">
+                      {/* Company Name */}
+                      <span 
+                        className="font-medium text-gray-900 flex items-center gap-2 cursor-pointer hover:text-indigo-600 transition-all group"
+                        onClick={() => handleSellerClick(product.seller)}
+                      >
+                        <Truncate text={product.seller?.company_name || "N/A"} />
+                        {!product.markAsRead && (
+                          <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">New</span>
+                        )}
+                        <Eye className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-indigo-400" />
+                      </span>
+
+                      {/* Username */}
+                      <span className="text-[10px] sm:text-xs text-gray-500">
+                        @{product.seller?.user_name || "unknown"}
+                      </span>
+                    </div>
+                  </TableCell>
+
+                  <TableCell className="px-4 py-3 text-xs sm:text-sm">
+                    <Truncate text={product.category_id?.category_name} />
+                  </TableCell>
+
+                  {/* Sub Category */}
+                  <TableCell className="px-4 py-3 text-xs sm:text-sm">
+                    <Truncate
+                      text={product.sub_category_id?.sub_category_name}
+                    />
+                  </TableCell>
+
+                  {/* Super Sub Category */}
+                  <TableCell className="px-4 py-3 text-xs sm:text-sm">
+                    <Truncate
+                      text={
+                        product.super_sub_category_id?.super_sub_category_name
+                      }
+                    />
+                  </TableCell>
+
+                  {/* Deep Sub Category */}
+                  <TableCell className="px-4 py-3 text-xs sm:text-sm">
+                    <Truncate
+                      text={
+                        product.deep_sub_category_id?.deep_sub_category_name
+                      }
+                    />
+                  </TableCell>
+
+                  {/* Product Name */}
+                  <TableCell className="px-4 py-3 text-xs sm:text-sm">
+                    <Truncate text={product.product_name} />
+                  </TableCell>
+
+                  {/* Price */}
+                  <TableCell className="px-4 py-3 text-xs sm:text-sm font-bold text-slate-800">
+                    {product.askPrice ? (
+                       <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full border border-amber-200">Ask Price</span>
+                    ) : (
+                      `₹${parseFloat(product.price?.$numberDecimal || 0).toLocaleString('en-IN')}`
+                    )}
+                  </TableCell>
+
+                  {/* Stock */}
+                  <TableCell className="px-4 py-3 text-xs sm:text-sm">
+                    <span className={`px-2 py-0.5 rounded-full ${product.stock_quantity > 0 ? "bg-emerald-50 text-emerald-700 font-bold" : "bg-rose-50 text-red-500 font-medium"}`}>
+                      {product.stock_quantity || 0} {product.unitOfMeasurement || ""}
+                    </span>
+                  </TableCell>
+
+                  {/* Verified */}
+                  <TableCell className="px-4 py-3 text-xs sm:text-sm">
+                    {product.product_verified_by_admin ? "Yes" : "No"}
+                  </TableCell>
+
+                  {/* Actions */}
+                  <TableCell className="py-3 px-4 flex gap-1 sm:gap-2 justify-end">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openProductModal(product)}
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>View Details</TooltipContent>
+                      </Tooltip>
+
+                      {!product.markAsRead && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleMarkAsRead(product._id)}
+                              className="text-gray-500 hover:text-gray-800"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Mark as Read</TooltipContent>
+                        </Tooltip>
+                      )}
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(product)}
+                            className="text-green-600 hover:text-green-800"
+                            disabled={!canEdit}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{!canEdit ? "No permission" : "Edit"}</TooltipContent>
+                      </Tooltip>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(product._id)}
+                            className="text-red-600 hover:text-red-800"
+                            disabled={!canDelete}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{!canDelete ? "No permission" : "Delete"}</TooltipContent>
+                      </Tooltip>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleVerify(product._id)}
+                            disabled={
+                              product.product_verified_by_admin || isVerifying
+                            }
+                            className="text-purple-600 cursor-pointer hover:text-purple-800"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Verify Product</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="sm:hidden space-y-5">
+        {products.length ? (
+          products.map((product) => (
+            <div
+              key={product._id}
+              className="border rounded-xl p-4 shadow-sm bg-white space-y-3.5"
+            >
+              <div className="grid gap-2.5 text-sm leading-snug">
+                <div className="grid grid-cols-[auto,1fr] gap-x-3">
+                  <span className="font-medium text-gray-700 whitespace-nowrap">
+                    Category:
+                  </span>
+                  <span className="text-gray-900 line-clamp-2">
+                    {product.category_id?.category_name || "—"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-[auto,1fr] gap-x-3">
+                  <span className="font-medium text-gray-700 whitespace-nowrap">
+                    Sub-Category:
+                  </span>
+                  <span className="text-gray-900 line-clamp-2">
+                    {product.sub_category_id?.sub_category_name || "—"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-[auto,1fr] gap-x-3">
+                  <span className="font-medium text-gray-700 whitespace-nowrap">
+                    Super Sub:
+                  </span>
+                  <span className="text-gray-900 line-clamp-2">
+                    {product.super_sub_category_id?.super_sub_category_name || "—"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-[auto,1fr] gap-x-3">
+                  <span className="font-medium text-gray-700 whitespace-nowrap">
+                    Deep Sub:
+                  </span>
+                  <span className="text-gray-900 line-clamp-2">
+                    {product.deep_sub_category_id?.deep_sub_category_name || "—"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-[auto,1fr] gap-x-3 pt-1">
+                  <span className="font-medium text-gray-700 whitespace-nowrap">
+                    Product:
+                  </span>
+                  <span className="font-medium text-gray-900 flex items-center gap-2">
+                    <span className="line-clamp-3">{product.product_name || "—"}</span>
+                    {!product.markAsRead && (
+                      <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">New</span>
+                    )}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-[auto,1fr] gap-x-3 pt-1">
+                  <span className="font-medium text-gray-700 whitespace-nowrap">
+                    Verified:
+                  </span>
+                  <span
+                    className={`font-medium ${product.product_verified_by_admin
+                      ? "text-emerald-700"
+                      : "text-amber-700"
+                      }`}
+                  >
+                    {product.product_verified_by_admin ? "Yes" : "No"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex flex-wrap gap-2.5 pt-3 border-t mt-1">
+                {!product.markAsRead && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleMarkAsRead(product._id)}
+                    className="flex-1 min-w-[88px] justify-center text-sm"
+                  >
+                    <CheckCircle className="h-3.5 w-3.5 mr-1.5 text-gray-500" />
+                    Read
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openProductModal(product)}
+                  className="flex-1 min-w-[88px] justify-center text-sm"
+                >
+                  <Eye className="h-3.5 w-3.5 mr-1.5" />
+                  View
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleEdit(product)}
+                  disabled={!canEdit}
+                  className="flex-1 min-w-[88px] justify-center text-sm"
+                >
+                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                  Edit
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDelete(product._id)}
+                  disabled={!canDelete}
+                  className="flex-1 min-w-[88px] justify-center border-red-200 text-red-600 hover:bg-red-50 text-sm"
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                  Delete
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleVerify(product._id)}
+                  disabled={product.product_verified_by_admin || isVerifying}
+                  className="flex-1 min-w-[88px] justify-center text-sm"
+                >
+                  <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                  Verify
+                </Button>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="text-center py-10 text-gray-500 bg-gray-50/50 rounded-lg border border-dashed">
+            No products found
+          </div>
+        )}
+      </div>
+
+      {/* Pagination */}
+      <div className="flex flex-col sm:flex-row sm:justify-between items-center mt-6 gap-4">
+        <div className="text-sm text-slate-500 font-medium">
+          Total Records: <span className="text-[#0c1f4d] font-bold">{data?.pagination?.totalProducts || 0}</span>
+        </div>
+        <div className="flex justify-center gap-3">
+          <Button
+            disabled={page === 1 || data?.pagination?.totalProducts === 0}
+            onClick={() => handlePaginationChange(page - 1)}
+            variant="outline"
+            size="sm"
+            className="rounded-xl px-4"
+          >
+            Previous
+          </Button>
+          <div className="flex items-center px-4 bg-slate-50 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700">
+            Page {page} of {data?.pagination?.totalPages || 1}
+          </div>
+          <Button
+            disabled={
+              page === data?.pagination?.totalPages ||
+              data?.pagination?.totalProducts === 0
+            }
+            onClick={() => handlePaginationChange(page + 1)}
+            variant="outline"
+            size="sm"
+            className="rounded-xl px-4"
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+
+      <Dialog open={isProductModalOpen} onOpenChange={setIsProductModalOpen}>
+        <DialogContent
+          className="p-0 overflow-hidden bg-white rounded-2xl border-none shadow-2xl"
+          style={{
+            width: "95vw",
+            maxWidth: "1200px",
+            height: "90vh",
+            maxHeight: "900px",
+          }}
+        >
+
+          <div className="flex items-center justify-between p-6 bg-gradient-to-r from-[#0c1f4d] to-[#1e3a8a] text-white sticky top-0 z-10">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight line-clamp-1">
+              {selectedProduct?.product_name}
+            </h1>
+            <Button
+              onClick={closeDetails}
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-white/20 rounded-full transition-colors h-10 w-10"
+            >
+              <X className="h-6 w-6" />
+            </Button>
+          </div>
+
+          <ScrollArea className="h-[calc(90vh-80px)] px-6 pt-6">
+            {selectedProduct && (
+              <div className="flex flex-col lg:flex-row gap-10 pb-12">
+                {/* Image Gallery Section */}
+                <div className="flex flex-col items-center flex-shrink-0 lg:w-[450px]">
+                  <div className="w-full aspect-square border rounded-2xl overflow-hidden bg-slate-50 shadow-inner flex items-center justify-center">
+                    <Zoom>
+                      <img
+                        src={activeImage}
+                        alt="Main Product"
+                        className="max-h-full max-w-full object-contain"
+                        onError={(e) => {
+                          e.target.src = noImage;
+                        }}
+                      />
+                    </Zoom>
+                  </div>
+
+                  {/* Thumbnails */}
+                  <div className="flex gap-3 mt-6 flex-wrap justify-center w-full">
+                    {selectedProduct.product_image?.map((imageUrl, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setActiveImage(imageUrl)}
+                        className={`w-16 h-16 sm:w-20 sm:h-20 border-2 rounded-xl overflow-hidden transition-all ${activeImage === imageUrl
+                          ? "border-[#0c1f4d] ring-2 ring-[#0c1f4d]/20 ring-offset-2"
+                          : "border-slate-200 hover:border-slate-300"
+                          }`}
+                      >
+                        <img
+                          src={imageUrl}
+                          alt={`Thumbnail ${index + 1}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.src = noImage;
+                          }}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Details Section */}
+                <div className="flex-1 space-y-8">
+                  <div className="space-y-4">
+                    <h2 className="text-2xl font-black text-[#0c1f4d] tracking-tight border-b pb-4">
+                      General Information
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Stock Quantity</p>
+                        <p className="text-lg font-bold text-slate-700">{selectedProduct.stock_quantity || "Unlimited"}</p>
+                      </div>
+                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Unit Price</p>
+                        <p className="text-lg font-bold text-[#0c1f4d]">
+                          ₹{parseFloat(selectedProduct.price?.$numberDecimal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h2 className="text-2xl font-black text-[#0c1f4d] tracking-tight border-b pb-4">
+                      Product Description
+                    </h2>
+                    <div
+                      className="prose prose-slate max-w-none text-slate-600 leading-relaxed text-sm"
+                      dangerouslySetInnerHTML={{ __html: selectedProduct.description }}
+                    />
+                  </div>
+
+                  {selectedProduct.attributes?.length > 0 && (
+                    <div className="space-y-4">
+                      <h2 className="text-2xl font-black text-[#0c1f4d] tracking-tight border-b pb-4">
+                        Technical Specifications
+                      </h2>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {selectedProduct.attributes.map((attr, idx) => (
+                          <div key={idx} className="flex flex-col p-3 border rounded-xl bg-white shadow-sm">
+                            <span className="text-xs font-bold text-slate-400 uppercase tracking-tight">{attr.attribute_key}</span>
+                            <span className="text-sm font-semibold text-slate-700">{attr.attribute_value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Product Edit Modal */}
+      <Dialog open={isModalOpen} onOpenChange={handleModalClose}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-6 rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black text-[#0c1f4d]">Edit Product</DialogTitle>
+          </DialogHeader>
+          {editingProduct && (
+            <StepperProductForm
+              editingProduct={editingProduct}
+              onClose={handleModalClose}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteDialog
+        open={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        onConfirm={confirmDelete}
+        title="Delete Product?"
+        description="This action will permanently remove the product and all associated images from the validation queue."
+      />
+      <SellerDetailsModal 
+        isOpen={isSellerModalOpen} 
+        onClose={() => setIsSellerModalOpen(false)} 
+        seller={selectedSeller} 
+      />
+    </div>
+  );
+};
+
+const SellerDetailsModal = ({ isOpen, onClose, seller }) => {
+  if (!seller) return null;
+
+  const InfoItem = ({ icon: Icon, label, value, color = "text-slate-600" }) => (
+    <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 transition-all hover:bg-slate-100/50">
+      <div className={`mt-0.5 p-2 rounded-lg bg-white shadow-sm ${color}`}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="flex flex-col">
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
+        <span className="text-sm font-semibold text-slate-700 break-all">{value || "N/A"}</span>
+      </div>
+    </div>
+  );
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[80%] w-[95%] max-h-[90vh] p-0 overflow-hidden bg-white rounded-3xl border-none shadow-2xl transition-all duration-300 flex flex-col">
+        {/* Header Section */}
+        <div className="relative h-32 bg-[#0c1f4d] flex-shrink-0 flex items-end px-8 pb-0">
+          <button 
+            onClick={onClose}
+            className="absolute top-4 right-4 z-50 p-2 rounded-full hover:bg-white/10 text-white/70 hover:text-white transition-all"
+          >
+            <X className="h-6 w-6" />
+          </button>
+          
+          <div className="absolute top-4 right-12 text-white/10">
+            <Building2 className="h-24 w-24" />
+          </div>
+          <div className="flex items-center gap-6 translate-y-8 bg-white p-2 rounded-2xl shadow-xl border border-slate-100 z-10">
+            <div className="h-24 w-24 sm:h-28 sm:w-28 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden border">
+              {seller.company_logo ? (
+                <img src={seller.company_logo} alt="Logo" className="h-full w-full object-contain" />
+              ) : (
+                <Building2 className="h-10 w-10 text-slate-300" />
+              )}
+            </div>
+            <div className="pr-6">
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none mb-2">
+                {seller.company_name || "N/A"}
+              </h2>
+              <div className="flex items-center gap-2">
+                <span className="bg-indigo-50 text-indigo-700 text-[11px] font-bold px-3 py-1.2 rounded-full border border-indigo-100 flex items-center gap-1.5 capitalize">
+                  <BadgeCheck className="h-3.5 w-3.5" />
+                  {seller.role?.toLowerCase() || "merchant"}
+                </span>
+                {seller.verified_status && (
+                  <span className="bg-emerald-50 text-emerald-700 text-[11px] font-bold px-3 py-1.2 rounded-full border border-emerald-100 flex items-center gap-1.5">
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    VERIFIED
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Content Section */}
+        <div className="flex-1 overflow-y-auto px-8 pt-20 pb-10 scrollbar-hide">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+              {/* Company Details */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="h-1 w-8 bg-indigo-600 rounded-full" />
+                  <h3 className="text-xs font-black text-[#0c1f4d] uppercase tracking-widest">Company Information</h3>
+                </div>
+                <div className="grid gap-4">
+                  <InfoItem icon={Mail} label="Company Email" value={seller.company_email} color="text-blue-600" />
+                  <InfoItem icon={Phone} label="Company Phone" value={seller.company_phone_number} color="text-indigo-600" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <InfoItem icon={FileText} label="GST Number" value={seller.gst_number} color="text-slate-500" />
+                    <InfoItem icon={CreditCard} label="PAN" value={seller.pan} color="text-slate-500" />
+                  </div>
+                  {seller.domain_name && (
+                    <InfoItem icon={Building2} label="Website" value={seller.domain_name} color="text-slate-500" />
+                  )}
+                </div>
+              </div>
+
+              {/* User Details */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="h-1 w-8 bg-amber-500 rounded-full" />
+                  <h3 className="text-xs font-black text-[#0c1f4d] uppercase tracking-widest">Personal Information</h3>
+                </div>
+                <div className="grid gap-4">
+                  <InfoItem icon={User} label="Authorized Person" value={seller.user_name} color="text-amber-600" />
+                  <InfoItem icon={Mail} label="Personal Email" value={seller.user_email} color="text-slate-500" />
+                  <InfoItem icon={Phone} label="Personal Phone" value={seller.user_phone} color="text-slate-500" />
+                  <InfoItem icon={ShieldCheck} label="Account Role" value={seller.role || "MERCHANT"} color="text-emerald-600" />
+                </div>
+              </div>
+            </div>
+
+            {/* Additional Info / MSME / KYC */}
+            <div className="mt-8 pt-6 border-t border-slate-100 space-y-4">
+               <div className="flex items-center gap-2 mb-2">
+                  <div className="h-1 w-8 bg-slate-400 rounded-full" />
+                  <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest">Compliance & Address</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                   <InfoItem icon={FileText} label="MSME Number" value={seller.msme_certificate_number} color="text-slate-400" />
+                   <div className="md:col-span-2">
+                      <InfoItem 
+                        icon={MapPin} 
+                        label="Physical Address" 
+                        value={
+                          seller.address_id 
+                            ? `${seller.address_id.address_line_1 || ""} ${seller.address_id.address_line_2 || ""}, ${seller.address_id.city || ""}, ${seller.address_id.state || ""} ${seller.address_id.pincode || ""}`.trim().replace(/^,/, '').trim()
+                            : "Address not found"
+                        } 
+                        color="text-rose-500" 
+                      />
+                   </div>
+                </div>
+            </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-6 bg-slate-50 flex-shrink-0 flex justify-end border-t border-slate-100 gap-3">
+          <Button 
+            variant="outline" 
+            onClick={onClose}
+            className="rounded-xl px-8 h-12 font-bold text-slate-600 border-slate-200 hover:bg-slate-100 transition-all font-sans"
+          >
+            Close
+          </Button>
+          <Button 
+            className="rounded-xl px-8 h-12 font-bold bg-[#0c1f4d] hover:bg-[#1e3a8a] text-white shadow-lg shadow-blue-100 transition-all"
+            onClick={onClose}
+          >
+            Verified Details Verified
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default NotVerifiedProducts;

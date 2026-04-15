@@ -1,0 +1,133 @@
+/* Custom Bullet Styles */
+.custom-bullet {
+    width: 12px;
+    height: 12px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .custom-bullet:hover {
+    transform: scale(1.2);
+    background: rgba(255, 255, 255, 0.8);
+  }
+  
+  .custom-bullet.swiper-pagination-bullet-active {
+    background: #ffffff;
+    transform: scale(1.4);
+  }
+  
+  .custom-bullet::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, rgba(255,255,255,0.3) 10%, transparent 10.01%);
+    transform: scale(0);
+    border-radius: 50%;
+  }
+  
+  .custom-bullet:hover::after {
+    animation: ripple 0.6s linear;
+  }
+  
+  /* Custom Navigation Buttons */
+  .swiper-button-prev-custom,
+  .swiper-button-next-custom {
+    width: 48px;
+    height: 48px;
+    /* background: rgba(0, 0, 0, 0.5); */
+    background-color: #0c1f4d;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    transition: all 0.3s ease;
+  }
+  
+  .swiper-button-prev-custom {
+    left: 10px;
+  }
+  
+  .swiper-button-next-custom {
+    right: 10px;
+  }
+  
+  .swiper-button-prev-custom:hover,
+  .swiper-button-next-custom:hover {
+    /* background: rgba(0, 0, 0, 0.8);
+     */
+     background-color: #ea1a24;
+    transform: translateY(-50%) scale(1.1);
+  }
+  
+  .arrow-icon {
+    width: 24px;
+    height: 24px;
+    fill: #ffffff;
+  }
+  
+  /* Ripple Effect */
+  .ripple {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, rgba(255,255,255,0.3) 10%, transparent 10.01%);
+    border-radius: 50%;
+    transform: scale(0);
+  }
+  
+  .swiper-button-prev-custom:hover .ripple,
+  .swiper-button-next-custom:hover .ripple {
+    animation: ripple 0.6s linear;
+  }
+  
+  /* Ripple Animation */
+  @keyframes ripple {
+    to {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
+  
+  /* Progress Circle */
+  .autoplay-progress {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .autoplay-progress svg {
+    transform: rotate(-90deg);
+  }
+  
+  .autoplay-progress svg circle {
+    stroke: #ffffff;
+    stroke-width: 4;
+    fill: none;
+    stroke-dasharray: 125.6;
+    stroke-dashoffset: calc(125.6 * var(--progress));
+    transition: stroke-dashoffset 0.1s linear;
+  }
+  
+  /* Swiper Container */
+  .swiper {
+    width: 100%;
+    height: 100%;
+  }
+  
+  .swiper-slide {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+
+  
