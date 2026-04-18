@@ -47,7 +47,7 @@ export default function SubCategoryItem({ category, onEdit, onDelete, viewMode }
         <img
           src={
             category.sub_category_image
-              ? encodeURI(category.sub_category_image)
+              ? `${encodeURI(category.sub_category_image)}?t=${Date.now()}`
               : noImage
           }
           width="100"

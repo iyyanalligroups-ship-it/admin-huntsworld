@@ -50,7 +50,7 @@ export default function SubCategoryForm({ open, onClose, editingCategory ,refetc
         setForm({
           sub_category_name: editingCategory.sub_category_name || "",
           sub_category_image: editingCategory.sub_category_image || "",
-          category_id: editingCategory.category_id?._id || "",
+          category_id: editingCategory.category_id?._id || editingCategory.category_id || "",
         });
       } else {
         setForm({

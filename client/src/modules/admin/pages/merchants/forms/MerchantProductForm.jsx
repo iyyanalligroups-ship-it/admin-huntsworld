@@ -265,7 +265,7 @@ const StepperProductForm = forwardRef(({ editingProduct, onClose }, ref) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : (name === "price" ? value : value.trim()),
+      [name]: type === "checkbox" ? checked : value,
     }));
     setTouched((prev) => ({ ...prev, [name]: true }));
   };

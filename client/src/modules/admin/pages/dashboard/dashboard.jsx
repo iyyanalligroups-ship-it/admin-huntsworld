@@ -28,7 +28,7 @@ const Dashboard = () => {
 
   if (isLoading) {
     return (
-      <div className={`sm:p-0 lg:p-6 bg-gray-100 ${isSidebarOpen ? 'ml-1 sm:ml-56' : 'ml-1 sm:ml-16'}`}>
+      <div className={`sm:p-0 lg:p-6 bg-gray-100 ${isSidebarOpen ? 'lg:ml-56' : 'lg:ml-16'}`}>
         <div className="sm:p-1 lg:p-6 space-y-6 min-h-screen">
           {/* Skeleton for Totals Section */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -130,7 +130,7 @@ const Dashboard = () => {
   };
 
   return (
-    <div className={`sm:p-0 lg:p-6 bg-gray-100 ${isSidebarOpen ? 'ml-1 sm:ml-56' : 'ml-1 sm:ml-16'}`}>
+    <div className={`sm:p-0 lg:p-6 bg-gray-100 ${isSidebarOpen ? 'lg:ml-56' : 'lg:ml-16'}`}>
       <div className="sm:p-1 lg:p-6 space-y-6 min-h-screen">
         {/* Totals Section */}
         <motion.div

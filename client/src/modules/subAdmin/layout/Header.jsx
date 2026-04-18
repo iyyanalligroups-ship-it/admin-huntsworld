@@ -132,9 +132,15 @@ const Header = () => {
           </div>
         </div>
 
-        {/* DESKTOP VIEW */}
-        <div className="hidden sm:flex items-center justify-between w-full">
-          <div className="flex-shrink-0">
+        {/* ==================== DESKTOP VIEW ==================== */}
+        <div className="hidden sm:flex items-center justify-between w-full gap-3">
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <button
+              onClick={toggleSidebar}
+              className="lg:hidden p-2 rounded-md border border-gray-300 cursor-pointer"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
             <AdminBreadcrumb />
           </div>
 

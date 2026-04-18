@@ -16,11 +16,12 @@ const DeleteDialog = ({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <div className="flex justify-end space-x-2">
-          <Button variant="outline" onClick={onClose}>
+          <Button className="cursor-pointer" variant="outline" onClick={onClose}>
             Cancel
           </Button>
           <Button
             variant="destructive"
+            className="cursor-pointer"
             onClick={async () => {
               await onConfirm();  // ✅ run confirm
               onClose();          // ✅ then close dialog

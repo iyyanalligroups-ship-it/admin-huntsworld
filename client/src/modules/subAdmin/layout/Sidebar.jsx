@@ -221,20 +221,6 @@ const Sidebar = () => {
   return (
     <TooltipProvider>
       <>
-        {/* Mobile toggle button */}
-        {isMobile && (
-          <button
-            className="fixed top-3 left-2 z-40 p-2 text-white bg-transparent rounded-md"
-            onClick={toggleSidebar}
-          >
-            {isSidebarOpen ? (
-              <Icons.ArrowCircleLeft size={22} weight="duotone" />
-            ) : (
-              <Icons.List size={22} weight="duotone" />
-            )}
-          </button>
-        )}
-
         {/* Mobile overlay */}
         {isMobile && isSidebarOpen && (
           <div className="fixed inset-0 bg-black/40 z-30" onClick={toggleSidebar}></div>
@@ -264,15 +250,16 @@ const Sidebar = () => {
               className={`cursor-pointer ml-1 ${!isSidebarOpen && !isMobile ? "hidden" : "w-32"}`}
             />
 
-            {!isMobile && (
+            {/* Toggle inside header (Desktop always, Mobile when open) */}
+            {(!isMobile || isSidebarOpen) && (
               <button
                 onClick={toggleSidebar}
-                className="p-1 rounded-md hover:bg-[#5a5a5a] transition"
+                className="p-1 rounded-md hover:bg-[#5a5a5a] cursor-pointer transition"
               >
                 {isSidebarOpen ? (
-                  <Icons.ArrowCircleLeft size={18} weight="duotone" />
+                  <Icons.ArrowCircleLeft size={18} className="text-white" weight="duotone" />
                 ) : (
-                  <Icons.List size={18} weight="duotone" />
+                  <Icons.List size={18} className="text-white" weight="duotone" />
                 )}
               </button>
             )}

@@ -16,6 +16,37 @@ import { Badge } from "@/components/ui/badge";
 import showToast from "@/toast/showToast";
 import { AuthContext } from "@/modules/landing/context/AuthContext";
 import { validatePhoneNumber } from "@/modules/validation/phoneValidation";
+import { Loader2 } from "lucide-react";
+
+const VerificationIndicator = ({ isVerified, isDirty, onVerify, isLoading, cooldown }) => {
+  if (isVerified && !isDirty) {
+    return (
+      <Badge
+        variant="outline"
+        className="ml-2.5 text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-50 text-green-700 border-green-300"
+      >
+        Verified
+      </Badge>
+    );
+  }
+
+  if (isDirty || !isVerified) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={onVerify}
+        disabled={isLoading || cooldown > 0}
+        className="ml-2 h-7 px-3 text-xs font-semibold text-primary hover:bg-primary/5 border-primary/30"
+      >
+        {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : (cooldown > 0 ? `Verify (${cooldown}s)` : "Verify")}
+      </Button>
+    );
+  }
+
+  return null;
+};
 
 const Profile = ({ userId }) => {
   const { isSidebarOpen } = useSidebar();
@@ -34,6 +65,11 @@ const Profile = ({ userId }) => {
   });
   const [profileImage, setProfileImage] = useState(null);
   const [originalEmail, setOriginalEmail] = useState("");
+  const [originalPhone, setOriginalPhone] = useState("");
+  const [verificationStatus, setVerificationStatus] = useState({
+    email: false,
+    phone: false,
+  });
   const [phoneError, setPhoneError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [confirmPasswordError, setConfirmPasswordError] = useState("");
@@ -97,12 +133,25 @@ const Profile = ({ userId }) => {
       });
       setProfileImage(userDetails.profile_pic || null);
       setOriginalEmail(userDetails.email || "");
+      setOriginalPhone(userDetails.phone || "");
+      setVerificationStatus({
+        email: userDetails.email_verified === true,
+        phone: userDetails.number_verified === true,
+      });
     }
   }, [userDetails]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+
+    // Reset verification status if changed from original
+    if (name === "email" && value.trim() !== (originalEmail || "").trim()) {
+      setVerificationStatus((prev) => ({ ...prev, email: false }));
+    }
+    if (name === "phone" && value.trim() !== (originalPhone || "").trim()) {
+      setVerificationStatus((prev) => ({ ...prev, phone: false }));
+    }
 
     // Validate phone number
     if (name === "phone") {
@@ -374,10 +423,15 @@ const Profile = ({ userId }) => {
           <h3 className="text-2xl font-bold text-gray-800">{safeFormData.name || "Anonymous User"}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Email */}
-            <div className="flex items-center space-x-3 p-3 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300">
+              <div className="flex items-center space-x-3 p-3 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300">
               <Mail className="w-5 h-5 text-primary" />
               <div>
-                <p className="text-sm font-medium text-gray-500">Email</p>
+                <p className="text-sm font-medium text-gray-500 flex items-center">
+                  Email
+                  {verificationStatus.email && (
+                    <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 border-green-300">Verified</Badge>
+                  )}
+                </p>
                 <p className="text-gray-800">{safeFormData.email || "Not provided"}</p>
               </div>
             </div>
@@ -385,7 +439,12 @@ const Profile = ({ userId }) => {
             <div className="flex items-center space-x-3 p-3 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300">
               <Phone className="w-5 h-5 text-primary" />
               <div>
-                <p className="text-sm font-medium text-gray-500">Phone</p>
+                <p className="text-sm font-medium text-gray-500 flex items-center">
+                  Phone
+                  {verificationStatus.phone && (
+                    <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 border-green-300">Verified</Badge>
+                  )}
+                </p>
                 <p className="text-gray-800">{safeFormData.phone || "Not provided"}</p>
               </div>
             </div>
@@ -559,17 +618,25 @@ const Profile = ({ userId }) => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone Number</Label>
-                  <div className="relative">
-                    <Input
-                      id="phone"
-                      name="phone"
-                      type="tel"
-                      value={safeFormData.phone}
-                      onChange={handleInputChange}
-                      placeholder="e.g. +91 9876543210"
-                      className={`pl-10 text-base transition-all duration-300 focus:ring-2 focus:ring-primary/20 border-2 border-slate-300 ${phoneError ? "border-red-500" : ""}`}
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        id="phone"
+                        name="phone"
+                        type="tel"
+                        value={safeFormData.phone}
+                        onChange={handleInputChange}
+                        placeholder="e.g. +91 9876543210"
+                        className={`pl-10 text-base transition-all duration-300 focus:ring-2 focus:ring-primary/20 border-2 border-slate-300 ${phoneError ? "border-red-500" : ""}`}
+                      />
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    </div>
+                    <VerificationIndicator 
+                      isVerified={verificationStatus.phone}
+                      isDirty={safeFormData.phone !== originalPhone}
+                      onVerify={handleSave}
+                      isLoading={isUpdating}
                     />
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   </div>
                   {phoneError && (
                     <p className="text-sm text-red-500">{phoneError}</p>
@@ -666,8 +733,8 @@ const Profile = ({ userId }) => {
                     {otpError && <p className="text-sm text-red-600">{otpError}</p>}
 
                     <div className="flex gap-3">
-                      <Button onClick={handleVerifyOtp} className="flex-1 bg-[#0c1f4d] hover:bg-[#0c204de7]">
-                        Verify OTP
+                      <Button onClick={handleVerifyOtp} disabled={isUpdating} className="flex-1 bg-[#0c1f4d] hover:bg-[#0c204de7]">
+                        {isUpdating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : "Verify OTP"}
                       </Button>
                       <Button
                         variant="outline"
