@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Zoom from 'react-medium-image-zoom';
 import 'react-medium-image-zoom/dist/styles.css';
-import { X, Phone, Mail, Building, Users, Briefcase, FileText, Shield, File, Trash2, Edit2, PlusCircle, Check, RotateCcw, Save, XCircle } from "lucide-react";
+import { X, Phone, Mail, Building, Users, Briefcase, FileText, Shield, File, Trash2, Edit2, PlusCircle, Check, RotateCcw, Save, XCircle, Video } from "lucide-react";
 import axios from "axios";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -135,6 +135,17 @@ const SmallCard = ({ merchant, onViewProducts }) => {
             <strong>Nature of Business:</strong>{" "}
             {merchant.company_type?.name || merchant.company_type || "—"}
             {merchant.modifiedFields?.includes('company_type') && <ModifiedBadge />}
+          </p>
+        )}
+
+        {merchant.company_video && (
+          <p className="text-xs sm:text-sm text-gray-600 flex items-center gap-1">
+            <Video className="w-4 h-4 text-[#0c1f4d]" />
+            <strong>Company Video:</strong>{" "}
+            <a href={merchant.company_video} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+              View Link
+            </a>
+            {merchant.modifiedFields?.includes('company_video') && <ModifiedBadge />}
           </p>
         )}
 
@@ -603,6 +614,16 @@ const LargeCard = ({ merchant, showProducts, setShowProducts, onRefresh }) => {
               <p className="text-xs sm:text-sm text-gray-600 flex items-center gap-1">
                 <Shield className="w-4 h-4" />
                 <strong>Trustshield:</strong> {merchant.trustshield ? "Yes" : "No"}
+              </p>
+            )}
+            {merchant.company_video && (
+              <p className="text-xs sm:text-sm text-gray-600 flex items-center gap-1 col-span-1 sm:col-span-2">
+                <Video className="w-4 h-4 text-[#0c1f4d]" />
+                <strong>Company Video:</strong>{" "}
+                <a href={merchant.company_video} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all">
+                  {merchant.company_video}
+                </a>
+                {merchant.modifiedFields?.includes('company_video') && <ModifiedBadge />}
               </p>
             )}
             {merchant.description && (

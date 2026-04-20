@@ -40,6 +40,7 @@ const EditMerchantForm = ({ merchant, onSave, open, onClose }) => {
     number_of_employees: merchant?.number_of_employees || "",
     year_of_establishment: merchant?.year_of_establishment || "",
     description: merchant?.description || "",
+    company_video: merchant?.company_video || "",
     company_logo: merchant?.company_logo || "",
     company_images: merchant?.company_images || [],
   });
@@ -136,6 +137,15 @@ const EditMerchantForm = ({ merchant, onSave, open, onClose }) => {
               isNaN(value) || Number(value) < 1800 || Number(value) > currentYear
                 ? `Year must be between 1800 and ${currentYear}`
                 : "",
+          };
+        }
+        break;
+      case "company_video":
+        if (value) {
+          const urlRegex = /^(https?:\/\/)[^\s$.?#].[^\s]*$/i;
+          result = {
+            isValid: urlRegex.test(value),
+            errorMessage: "Please enter a valid URL (http:// or https://)",
           };
         }
         break;
@@ -491,6 +501,20 @@ const EditMerchantForm = ({ merchant, onSave, open, onClose }) => {
               className="w-full mt-1 p-2 border rounded-md text-sm focus:ring-1 focus:ring-blue-500 outline-none"
               placeholder="Tell us about the business..."
             />
+          </div>
+
+          <div className="mt-5">
+            <Label className="text-gray-700">Company Video</Label>
+            <Input
+              name="company_video"
+              value={formData.company_video}
+              onChange={handleChange}
+              placeholder="e.g. https://youtube.com/watch?v=..."
+              className={`mt-1 ${validationErrors.company_video ? "border-red-500" : ""}`}
+            />
+            {validationErrors.company_video && (
+              <p className="text-red-500 text-xs mt-1">{validationErrors.company_video}</p>
+            )}
           </div>
 
           {/* Media Section */}

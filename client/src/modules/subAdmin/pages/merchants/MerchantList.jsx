@@ -231,11 +231,13 @@ const MerchantForm = ({ userId, onSubmit, onCancel, merchantRefresh }) => {
     company_name: "",
     company_email: "",
     company_phone_number: "",
+    company_video: "",
   });
   const [errors, setErrors] = useState({
     company_name: "",
     company_email: "",
     company_phone_number: "",
+    company_video: "",
     general: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -259,16 +261,27 @@ const MerchantForm = ({ userId, onSubmit, onCancel, merchantRefresh }) => {
     return { isValid: true, errorMessage: "" };
   };
 
+  const validateUrl = (url) => {
+    if (!url) return { isValid: true, errorMessage: "" };
+    const urlRegex = /^(https?:\/\/)[^\s$.?#].[^\s]*$/i;
+    if (!urlRegex.test(url)) {
+      return { isValid: false, errorMessage: "Please enter a valid URL (http:// or https://)" };
+    }
+    return { isValid: true, errorMessage: "" };
+  };
+
   useEffect(() => {
-    const { company_name, company_email, company_phone_number } = merchantData;
+    const { company_name, company_email, company_phone_number, company_video } = merchantData;
 
     const emailValidation = validateEmail(company_email);
     const phoneValidation = validatePhoneNumber(company_phone_number);
+    const videoValidation = validateUrl(company_video);
 
     const hasErrors =
       !company_name ||
       !emailValidation.isValid ||
-      !phoneValidation.isValid;
+      !phoneValidation.isValid ||
+      !videoValidation.isValid;
 
     setIsValid(!hasErrors);
   }, [merchantData]);
@@ -298,11 +311,12 @@ const MerchantForm = ({ userId, onSubmit, onCancel, merchantRefresh }) => {
 
   const handleMerchantSubmit = async (e) => {
     e.preventDefault();
-    setErrors({ company_name: "", company_email: "", company_phone_number: "", general: "" });
+    setErrors({ company_name: "", company_email: "", company_phone_number: "", company_video: "", general: "" });
     setIsSubmitting(true);
 
     const emailValidation = validateEmail(merchantData.company_email);
     const phoneValidation = validatePhoneNumber(merchantData.company_phone_number);
+    const videoValidation = validateUrl(merchantData.company_video);
 
     if (!merchantData.company_name) {
       setErrors((prev) => ({ ...prev, company_name: "Company name is required" }));
@@ -319,6 +333,12 @@ const MerchantForm = ({ userId, onSubmit, onCancel, merchantRefresh }) => {
 
     if (!phoneValidation.isValid) {
       setErrors((prev) => ({ ...prev, company_phone_number: phoneValidation.errorMessage }));
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!videoValidation.isValid) {
+      setErrors((prev) => ({ ...prev, company_video: videoValidation.errorMessage }));
       setIsSubmitting(false);
       return;
     }
@@ -418,6 +438,23 @@ const MerchantForm = ({ userId, onSubmit, onCancel, merchantRefresh }) => {
           </p>
         )}
         <p className="text-xs text-gray-500">Enter 10-digit phone number</p>
+      </div>
+
+      <div className="space-y-2">
+        <label className="block text-xs sm:text-sm font-medium text-gray-700">
+          Company Video <span className="text-gray-400 text-xs font-normal">(optional)</span>
+        </label>
+        <Input
+          type="text"
+          name="company_video"
+          value={merchantData.company_video}
+          onChange={handleMerchantFormChange}
+          className={`border-gray-300 focus:ring-2 focus:ring-[#0c1f4d] text-xs sm:text-sm ${errors.company_video ? "border-red-500" : ""}`}
+          placeholder="e.g. https://youtube.com/watch?v=..."
+        />
+        {errors.company_video && (
+          <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.company_video}</p>
+        )}
       </div>
 
       {errors.general && (
