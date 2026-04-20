@@ -117,7 +117,7 @@ const Header = () => {
         </button>
 
         <div className="flex-grow flex justify-center">
-          <SearchCommand /> sdfkdjfhdj
+          <SearchCommand />
         </div>
 
         <div className="flex items-center gap-2">
