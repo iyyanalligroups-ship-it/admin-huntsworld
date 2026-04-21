@@ -606,12 +606,12 @@ const LargeCard = ({ merchant, showProducts, setShowProducts, onRefresh }) => {
                 <strong>Verified:</strong> {merchant.verified_status ? "Yes" : "No"}
               </p>
             )}
-            {merchant.trustshield !== undefined && (
+            {/* {merchant.trustshield !== undefined && (
               <p className="text-xs sm:text-sm text-gray-600 flex items-center gap-1">
                 <Shield className="w-4 h-4" />
                 <strong>Trustshield:</strong> {merchant.trustshield ? "Yes" : "No"}
               </p>
-            )}
+            )} */}
             {merchant.company_video && (
               <p className="text-xs sm:text-sm text-gray-600 flex items-center gap-1 col-span-1 sm:col-span-2">
                 <Video className="w-4 h-4 text-[#0c1f4d]" />

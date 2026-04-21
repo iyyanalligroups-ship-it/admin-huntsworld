@@ -141,11 +141,22 @@ const AllPaymentHistory = () => {
   };
 
   const formatAmount = (payment) => {
-    const amt = payment.total_amount != null ? payment.total_amount : payment.amount;
-    if (amt == null) {
+    const rawAmt = payment.total_amount != null ? payment.total_amount : payment.amount;
+    if (rawAmt == null) {
       return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(0);
     }
-    return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(amt / 100);
+    
+    // 💡 LEGACY DATA FIX: Handle Trust Seal records that were saved in Rupees instead of Paise
+    let amt = rawAmt;
+    if (payment.payment_type === "trust_seal" && rawAmt < 5000) {
+      amt = rawAmt * 100;
+    }
+
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: 2
+    }).format(amt / 100);
   };
 
   const getItemName = (payment) => {
@@ -278,7 +289,14 @@ const AllPaymentHistory = () => {
                           {getItemName(payment)}
                         </TableCell>
                         <TableCell className="whitespace-nowrap font-medium py-4">
-                          {formatAmount(payment)}
+                          <div className="flex flex-col">
+                            <span>{formatAmount(payment)}</span>
+                            {payment.gst_percentage != null && (
+                              <span className="text-[10px] text-muted-foreground font-normal">
+                                (incl. {payment.gst_percentage}% GST)
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="py-4">{getStatusBadge(payment.status)}</TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground py-4">
@@ -502,16 +520,37 @@ const AllPaymentHistory = () => {
                      {safeFormatDate(selectedPayment.paid_at, "dd MMM yyyy")}
                    </p>
                 </div>
-                 <div className="col-span-2">
-                   <p className="text-muted-foreground text-xs">Payment Method</p>
-                   <p className="font-medium capitalize mt-0.5">
-                     {selectedPayment.payment_method || "—"}
-                   </p>
+                <div className="col-span-2">
+                  <p className="text-muted-foreground text-xs">Payment Method</p>
+                  <p className="font-medium capitalize mt-0.5">
+                    {selectedPayment.payment_method || "—"}
+                  </p>
+                </div>
+                <div className="col-span-2 lg:col-span-4 mt-2 bg-muted/30 p-3 rounded-md border border-dashed">
+                  <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wider mb-2">Financial Breakdown</p>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                      <p className="text-muted-foreground text-[10px] uppercase">Base Amount</p>
+                      <p className="font-medium">{new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format((selectedPayment.amount || 0) / 100)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-[10px] uppercase">GST Percentage</p>
+                      <p className="font-medium">{selectedPayment.gst_percentage != null ? selectedPayment.gst_percentage : "—"}%</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-[10px] uppercase">GST Amount</p>
+                      <p className="font-medium">{new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format((selectedPayment.gst_amount || 0) / 100)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-[10px] uppercase font-bold text-primary">Total Paid</p>
+                      <p className="font-bold text-primary">{formatAmount(selectedPayment)}</p>
+                    </div>
+                  </div>
                 </div>
                 {selectedPayment.notes && (
-                  <div className="col-span-2 lg:col-span-4">
+                  <div className="col-span-2 lg:col-span-4 mt-2">
                     <p className="text-muted-foreground text-xs">Notes</p>
-                    <p className="font-medium whitespace-pre-wrap mt-0.5">{selectedPayment.notes}</p>
+                    <p className="font-medium whitespace-pre-wrap mt-0.5 text-xs bg-muted/20 p-2 rounded">{selectedPayment.notes}</p>
                   </div>
                 )}
               </div>
