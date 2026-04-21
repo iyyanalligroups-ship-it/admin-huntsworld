@@ -67,8 +67,10 @@ function BaseMemberType() {
   const [loading, setLoading] = useState(true);
 
   const [newName, setNewName] = useState("");
+  const [newHasFullAccess, setNewHasFullAccess] = useState(false);
   const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState("");
+  const [editHasFullAccess, setEditHasFullAccess] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -121,10 +123,11 @@ function BaseMemberType() {
     }
 
     try {
-      const res = await api.post("/base-member-types/create-base-member-type", { name: trimmed });
+      const res = await api.post("/base-member-types/create-base-member-type", { name: trimmed, has_full_access: newHasFullAccess });
       if (res.data.success) {
         showToast("Created successfully", "success");
         setNewName("");
+        setNewHasFullAccess(false);
         setIsAddOpen(false);
         fetchTypes(currentPage, searchTerm);
       }
@@ -138,11 +141,12 @@ function BaseMemberType() {
     if (!trimmed || !editId) return;
 
     try {
-      const res = await api.put(`/base-member-types/update-base-member-type/${editId}`, { name: trimmed });
+      const res = await api.put(`/base-member-types/update-base-member-type/${editId}`, { name: trimmed, has_full_access: editHasFullAccess });
       if (res.data.success) {
         showToast("Updated successfully", "success");
         setEditId(null);
         setEditName("");
+        setEditHasFullAccess(false);
         setIsEditOpen(false);
         fetchTypes(currentPage, searchTerm);
       }
@@ -169,6 +173,7 @@ function BaseMemberType() {
   const openEdit = (typeItem) => {
     setEditId(typeItem._id);
     setEditName(typeItem.name);
+    setEditHasFullAccess(typeItem.has_full_access || false);
     setIsEditOpen(true);
   };
 
@@ -213,14 +218,29 @@ function BaseMemberType() {
                     Enter name (will be normalized for display)
                   </DialogDescription>
                 </DialogHeader>
-                <div className="py-4">
-                  <Input
-                    placeholder="e.g. Platinum Member"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAdd())}
-                    className="border-2 border-slate-300"
-                  />
+                <div className="py-4 space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">Name</label>
+                    <Input
+                      placeholder="e.g. Platinum Member"
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAdd())}
+                      className="border-2 border-slate-300"
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input 
+                      type="checkbox" 
+                      id="newFullAccess"
+                      checked={newHasFullAccess} 
+                      onChange={(e) => setNewHasFullAccess(e.target.checked)} 
+                      className="w-4 h-4 cursor-pointer"
+                    />
+                    <label htmlFor="newFullAccess" className="text-sm font-medium cursor-pointer">
+                      Grant Full Access (bypass restrictions)
+                    </label>
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setIsAddOpen(false)}>
@@ -258,8 +278,9 @@ function BaseMemberType() {
                   <TableHeader>
                     <TableRow className="bg-[#0c1f4d] border-b hover:bg-[#153171] border-gray-300">
                       <TableHead className=" w-[40%] text-xs sm:text-sm font-medium text-white">Name</TableHead>
-                      <TableHead className="w-[35%] text-xs sm:text-sm font-medium text-white">Display Name</TableHead>
-                      <TableHead className="w-[25%] text-xs sm:text-sm font-medium text-white">Actions</TableHead>
+                      <TableHead className="w-[30%] text-xs sm:text-sm font-medium text-white">Display Name</TableHead>
+                      <TableHead className="w-[15%] text-xs sm:text-sm font-medium text-white">Full Access</TableHead>
+                      <TableHead className="w-[15%] text-xs sm:text-sm font-medium text-white text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -267,6 +288,13 @@ function BaseMemberType() {
                       <TableRow key={type._id} className="hover:bg-muted/30">
                         <TableCell className="font-medium">{type.name}</TableCell>
                         <TableCell>{getDisplayName(type.name)}</TableCell>
+                        <TableCell>
+                          {type.has_full_access ? (
+                            <Badge className="bg-green-600 hover:bg-green-600">Yes</Badge>
+                          ) : (
+                            <Badge variant="secondary">No</Badge>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right space-x-1">
                           <Button
                             variant="ghost"
@@ -301,6 +329,13 @@ function BaseMemberType() {
                       <p className="text-sm text-muted-foreground">
                         Display: {getDisplayName(type.name)}
                       </p>
+                      <div className="mt-2">
+                        {type.has_full_access ? (
+                          <Badge className="bg-green-600 hover:bg-green-600">Full Access: Yes</Badge>
+                        ) : (
+                          <Badge variant="secondary">Full Access: No</Badge>
+                        )}
+                      </div>
                     </CardHeader>
                     <CardContent className="pt-0 flex justify-end gap-2">
                       <Button
@@ -367,14 +402,29 @@ function BaseMemberType() {
             <DialogTitle>Edit Base Member Type</DialogTitle>
             <DialogDescription>Update the name of this type.</DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <Input
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              placeholder="e.g. Update Member Name"
-              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleEdit())}
-              className="border-2 border-slate-300"
-            />
+          <div className="py-4 space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Name</label>
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="e.g. Update Member Name"
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleEdit())}
+                className="border-2 border-slate-300"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input 
+                type="checkbox" 
+                id="editFullAccess"
+                checked={editHasFullAccess} 
+                onChange={(e) => setEditHasFullAccess(e.target.checked)} 
+                className="w-4 h-4 cursor-pointer"
+              />
+              <label htmlFor="editFullAccess" className="text-sm font-medium cursor-pointer">
+                Grant Full Access (bypass restrictions)
+              </label>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>
