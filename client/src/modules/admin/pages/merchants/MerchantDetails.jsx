@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Country, State, City } from "country-state-city";
 import showToast from "@/toast/showToast";
 import ViewProducts from "./ViewProducts";
+import TrustSealCertificate from "./TrustSealCertificate";
 import { useNavigate } from "react-router-dom";
 import { useSelectedUser } from "../../context/SelectedUserContext";
 import {
@@ -289,6 +290,7 @@ const LargeCard = ({ merchant, showProducts, setShowProducts, onRefresh }) => {
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [showTrustSeal, setShowTrustSeal] = useState(false);
   const [addressForm, setAddressForm] = useState({
     address_line_1: "",
     address_line_2: "",
@@ -610,12 +612,25 @@ const LargeCard = ({ merchant, showProducts, setShowProducts, onRefresh }) => {
                 <strong>Verified:</strong> {merchant.verified_status ? "Yes" : "No"}
               </p>
             )}
-            {/* {merchant.trustshield !== undefined && (
-              <p className="text-xs sm:text-sm text-gray-600 flex items-center gap-1">
-                <Shield className="w-4 h-4" />
-                <strong>Trustshield:</strong> {merchant.trustshield ? "Yes" : "No"}
+            {merchant.trust_seal ? (
+              <div className="text-xs sm:text-sm text-gray-600 flex items-center gap-2 col-span-1 sm:col-span-2">
+                <Shield className="w-4 h-4 text-[#0c1f4d]" />
+                <strong>Trust Seal:</strong> Yes
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="h-7 px-2 text-xs ml-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                  onClick={() => setShowTrustSeal(true)}
+                >
+                  View Trust Seal
+                </Button>
+              </div>
+            ) : (
+              <p className="text-xs sm:text-sm text-gray-600 flex items-center gap-1 col-span-1 sm:col-span-2">
+                <Shield className="w-4 h-4 text-[#0c1f4d]" />
+                <strong>Trust Seal:</strong> No
               </p>
-            )} */}
+            )}
             {merchant.company_video && (
               <p className="text-xs sm:text-sm text-gray-600 flex items-center gap-1 col-span-1 sm:col-span-2">
                 <Video className="w-4 h-4 text-[#0c1f4d]" />
@@ -704,6 +719,26 @@ const LargeCard = ({ merchant, showProducts, setShowProducts, onRefresh }) => {
                 {isDeleting ? "Deleting..." : "Confirm Delete"}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={showTrustSeal} onOpenChange={setShowTrustSeal}>
+        <DialogContent 
+          className="max-h-[90vh] overflow-auto bg-white p-0 rounded-xl border shadow-lg [&>button]:hidden"
+          style={{ width: "900px", maxWidth: "95vw" }}
+        >
+          <div className="w-full flex justify-center">
+            <TrustSealCertificate
+              companyName={merchant.company_name}
+              address={merchant.company_address ? `${merchant.company_address.address_line_1}, ${merchant.company_address.city}, ${merchant.company_address.state}, ${merchant.company_address.country} - ${merchant.company_address.pincode}` : "Address not provided"}
+              director={merchant.user_id?.name || "Not Specified"}
+              gstin={merchant.gst_number || "N/A"}
+              mobile={merchant.company_phone_number || "N/A"}
+              email={merchant.company_email || "N/A"}
+              issueDate={merchant.trust_seal?.issueDate}
+              expiryDate={merchant.trust_seal?.expiryDate}
+              onClose={() => setShowTrustSeal(false)}
+            />
           </div>
         </DialogContent>
       </Dialog>
